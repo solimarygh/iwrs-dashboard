@@ -1,0 +1,11 @@
+# Raw OpenAlex snapshots are large and re-creatable
+data/raw/*.rds
+# Coders' working files stay local until adjudicated
+data/validation/coding_sheet_coder*.csv
+.Rhistory
+.RData
+.Rproj.user/
+.DS_Store
+.Rproj.user
+.httr-oauth
+.quarto

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invertebrate Welfare Science Dashboard</title>
+  <meta name="description" content="An open, reproducible view of the invertebrate welfare and sentience research landscape, 2016–2026, built on OpenAlex." />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css?v=1" />
+</head>
+<body>
+<div class="layout">
+
+  <!-- ============================ SIDEBAR ============================ -->
+  <aside class="sidebar" id="sidebar" aria-label="Navigation and filters">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <!-- stylised arthropod: segmented body + three leg pairs -->
+        <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <ellipse cx="16" cy="9" rx="3.2" ry="3.4"/>
+          <ellipse cx="16" cy="16.5" rx="3.6" ry="3.8"/>
+          <ellipse cx="16" cy="25" rx="4.2" ry="4.4"/>
+          <path d="M12.6 14.5 7 11M12.4 17 6 17M12.6 19.5 7 23M19.4 14.5 25 11M19.6 17 26 17M19.4 19.5 25 23M14.5 6 11.5 2.5M17.5 6 20.5 2.5"/>
+        </g>
+      </svg>
+      <div>
+        <strong>Invertebrate Welfare</strong>
+        <span class="brand-sub">Research landscape · 2016–2026</span>
+      </div>
+      <button class="sidebar-close" id="sidebar-close" aria-label="Close menu">✕</button>
+    </div>
+
+    <nav class="nav" id="nav">
+      <a href="#overview" class="active">Overview</a>
+      <a href="#indicators">Annual indicators</a>
+      <a href="#trends">Publication trends</a>
+      <a href="#taxa">Taxa &amp; contexts</a>
+      <a href="#journals">Journals</a>
+      <a href="#geography">Geography</a>
+      <a href="#cited">Most cited</a>
+      <a href="#validation">Search &amp; validation</a>
+      <a href="#about">About &amp; methods</a>
+    </nav>
+
+    <div class="filters" id="filters">
+      <h3>Filters</h3>
+      <label class="f-label"><span>Years</span>
+        <span class="f-range">
+          <select id="f-year-min" aria-label="From year"></select>
+          <span aria-hidden="true">–</span>
+          <select id="f-year-max" aria-label="To year"></select>
+        </span>
+      </label>
+      <label class="f-label"><span>Title contains</span>
+        <input type="search" id="f-text" placeholder="e.g. octopus, stunning" />
+      </label>
+      <fieldset class="f-group"><legend>Taxon group</legend><div id="f-taxa"></div></fieldset>
+      <fieldset class="f-group"><legend>Theme</legend><div id="f-themes"></div></fieldset>
+      <fieldset class="f-group"><legend>Context <span class="hint" title="Keyword-based, approximate">≈</span></legend><div id="f-contexts"></div></fieldset>
+      <fieldset class="f-group"><legend>Journal group</legend><div id="f-jgroups"></div></fieldset>
+      <fieldset class="f-group"><legend>Document type</legend><div id="f-types"></div></fieldset>
+      <label class="f-check"><input type="checkbox" id="f-noci" />
+        <span>Include nociception-only papers</span></label>
+      <label class="f-check"><input type="checkbox" id="f-us" />
+        <span>US first author only</span></label>
+      <button class="btn-reset" id="btn-reset">Reset filters</button>
+    </div>
+
+    <div class="sidebar-actions">
+      <div class="match-count" id="match-count" aria-live="polite">— works</div>
+      <button class="btn-primary" id="btn-download">Download filtered CSV</button>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <!-- ============================ MAIN ============================ -->
+  <div class="main-col">
+    <header class="topbar">
+      <div>
+        <h1>Invertebrate Welfare Science Dashboard</h1>
+        <p class="subtitle">How research on the welfare, sentience and affective states of insects and other
+          invertebrates has grown since 2016. Built on <a href="https://openalex.org/" target="_blank" rel="noopener">OpenAlex</a>
+          for the <a href="https://www.insectwelfare.com/" target="_blank" rel="noopener">Insect Welfare Research Society</a>.</p>
+      </div>
+      <div class="topbar-right">
+        <span class="snapshot" id="snapshot"></span>
+      </div>
+    </header>
+    <div class="demo-banner" id="demo-banner" hidden>
+      <strong>Demo data.</strong> These numbers are synthetic placeholders for layout testing.
+      Run the R pipeline (<code>R/01_fetch_openalex.R</code> then <code>R/02_build_records.R</code>) to load the real OpenAlex corpus.
+    </div>
+
+    <button class="filters-toggle" id="filters-toggle">☰ Menu &amp; filters</button>
+
+    <main class="content" id="content">
+      <p id="loading">Loading data…</p>
+      <div id="dash" hidden>
+
+        <div class="view-tabs" role="tablist">
+          <button role="tab" data-view="dashboard" class="active" aria-selected="true">Dashboard</button>
+          <button role="tab" data-view="records" aria-selected="false">Records</button>
+        </div>
+
+        <div id="view-dashboard">
+        <!-- OVERVIEW -->
+        <section id="overview" class="section">
+          <h2 class="section-title">Overview</h2>
+          <div class="kpi-grid" id="kpis"></div>
+          <ul class="findings" id="findings"></ul>
+        </section>
+
+        <!-- ANNUAL INDICATORS -->
+        <section id="indicators" class="section">
+          <h2 class="section-title">Annual indicators, 2016–2026</h2>
+          <div class="card wide">
+            <p class="card-desc">The statistics requested in the IWRS brief, year by year. Publication rows come from OpenAlex and follow the filters on the left.
+              The other rows are curated by hand from conference programs, thesis repositories, funder databases and media archives, and don't change with the filters.
+              <em>Pending</em> means the data hasn't been collected yet.</p>
+            <div class="table-wrap"><table class="data-table indicators" id="ind-table"></table></div>
+            <div class="card-actions"><button class="btn-secondary" id="btn-ind-csv">Download indicators CSV</button></div>
+          </div>
+        </section>
+
+        <!-- TRENDS -->
+        <section id="trends" class="section">
+          <h2 class="section-title">Publication trends</h2>
+          <div class="card-grid">
+            <div class="card" data-chart="yearChart">
+              <h3>Papers per year</h3>
+              <p class="card-desc">Peer-reviewed articles and reviews matching the filters. The current year is partial.</p>
+              <div class="chart-box"><canvas id="yearChart"></canvas></div>
+            </div>
+            <div class="card" data-chart="normChart">
+              <h3>Papers per 100,000 indexed works</h3>
+              <p class="card-desc">Same count divided by everything OpenAlex indexed that year, so growth isn't just the growth of science.</p>
+              <div class="chart-box"><canvas id="normChart"></canvas></div>
+            </div>
+          </div>
+          <div class="card wide" data-chart="themeChart">
+            <h3>Papers per year by theme</h3>
+            <p class="card-desc">A paper can mention several themes, so lines don't add up to the total.</p>
+            <div class="chart-box tall"><canvas id="themeChart"></canvas></div>
+          </div>
+        </section>
+
+        <!-- TAXA & CONTEXTS -->
+        <section id="taxa" class="section">
+          <h2 class="section-title">Taxa &amp; contexts</h2>
+          <div class="card-grid">
+            <div class="card" data-chart="taxaChart">
+              <h3>Papers by taxon group</h3>
+              <p class="card-desc">Multi-label: a paper comparing bees and crabs counts in both.</p>
+              <div class="chart-box"><canvas id="taxaChart"></canvas></div>
+            </div>
+            <div class="card" data-chart="contextChart">
+              <h3>Papers by management context</h3>
+              <p class="card-desc">Keyword-based and approximate, following the contexts in the IWRS mission.</p>
+              <div class="chart-box"><canvas id="contextChart"></canvas></div>
+            </div>
+          </div>
+          <div class="card wide" data-chart="taxaTrendChart">
+            <h3>Papers per year by taxon group</h3>
+            <div class="chart-box tall"><canvas id="taxaTrendChart"></canvas></div>
+          </div>
+        </section>
+
+        <!-- JOURNALS -->
+        <section id="journals" class="section">
+          <h2 class="section-title">Journals</h2>
+          <div class="card wide" data-chart="jgroupChart">
+            <h3>Where the papers are published</h3>
+            <p class="card-desc">Animal welfare journals, entomology journals, high-impact multidisciplinary journals and everything else, per year.</p>
+            <div class="chart-box tall"><canvas id="jgroupChart"></canvas></div>
+          </div>
+          <div class="card-grid">
+            <div class="card">
+              <h3>Focal journals by year</h3>
+              <p class="card-desc">The journals named in the IWRS statistics brief.</p>
+              <div class="table-wrap"><table class="data-table" id="focal-table"></table></div>
+            </div>
+            <div class="card" data-chart="topJournalChart">
+              <h3>Top 12 journals</h3>
+              <p class="card-desc">Use this to spot journals missing from the groups.</p>
+              <div class="chart-box tall"><canvas id="topJournalChart"></canvas></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- GEOGRAPHY -->
+        <section id="geography" class="section">
+          <h2 class="section-title">Geography</h2>
+          <div class="card-grid">
+            <div class="card" data-chart="countryChart">
+              <h3>Top 15 countries</h3>
+              <p class="card-desc">Papers with at least one author affiliated in each country.</p>
+              <div class="chart-box tall"><canvas id="countryChart"></canvas></div>
+            </div>
+            <div class="card" data-chart="usChart">
+              <h3>Share of papers with a US first author</h3>
+              <p class="card-desc">Per year. Small yearly counts make early years noisy.</p>
+              <div class="chart-box"><canvas id="usChart"></canvas></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MOST CITED -->
+        <section id="cited" class="section">
+          <h2 class="section-title">Most cited</h2>
+          <div class="card wide">
+            <p class="card-desc">Top 10 by OpenAlex citation count within the current filters. Citation counts differ between databases; older papers have had longer to accumulate citations.</p>
+            <div class="table-wrap"><table class="data-table" id="cited-table"></table></div>
+          </div>
+        </section>
+
+        <!-- VALIDATION -->
+        <section id="validation" class="section">
+          <h2 class="section-title">Search &amp; validation</h2>
+          <div class="card wide">
+            <p class="card-desc">Every number here comes from public queries you can re-run. Each taxon group is searched separately in titles and abstracts (unstemmed, with wildcards), combined with the same state terms; results are merged and deduplicated.</p>
+            <div class="kpi-grid small" id="val-kpis"></div>
+            <h3>Queries by taxon group</h3>
+            <div id="val-queries"></div>
+            <h3>Live check</h3>
+            <p class="card-desc">Re-run each query against OpenAlex now and compare with this snapshot. Small differences are expected as OpenAlex keeps updating.</p>
+            <button class="btn-secondary" id="btn-verify">Verify against OpenAlex now</button>
+            <div class="table-wrap"><table class="data-table" id="verify-table"></table></div>
+          </div>
+        </section>
+
+        <!-- ABOUT -->
+        <section id="about" class="section">
+          <h2 class="section-title">About &amp; methods</h2>
+          <div class="card wide prose">
+            <h3>Scope</h3>
+            <p>The corpus follows the scope of the Insect Welfare Research Society: insects, plus terrestrial
+              invertebrates (arachnids, myriapods, gastropods) and aquatic invertebrates (crustaceans such as
+              shrimp and prawns, horseshoe crabs, cephalopods). Horseshoe crabs are chelicerates, so they are grouped
+              with arachnids, not crustaceans. Mites and ticks are not searched, because that literature is dominated
+              by parasitology rather than the welfare of the mites themselves.</p>
+            <h3>What counts</h3>
+            <p>Peer-reviewed articles and reviews published 2016–2026 whose title or abstract names an invertebrate
+              taxon <em>and</em> a state term (sentience, emotion or affective state, consciousness, welfare,
+              pain, nociception, suffering). Retracted works are excluded.</p>
+            <h3>Nociception is shown separately</h3>
+            <p>Nociception, the detection of noxious stimuli, is not on its own evidence of sentience or a
+              welfare focus. Papers whose only theme is pain or nociception, for example much of the
+              <em>Drosophila</em> nociception neurogenetics literature, are hidden by default. Tick
+              “Include nociception-only papers” to see them.</p>
+            <h3>Limits</h3>
+            <ul>
+              <li>Classification into taxa, themes and contexts is keyword-based and multi-label. Contexts are the least precise.</li>
+              <li>OpenAlex coverage of non-English and regional journals is better than most databases but still incomplete.</li>
+              <li>Precision and recall are estimated from a hand-coded random sample and a gold set of known papers; see Search &amp; validation.</li>
+              <li>The current year is partial.</li>
+            </ul>
+            <h3>Reproducibility &amp; credit</h3>
+            <p>The corpus definition lives in <code>config/query_config.yaml</code>; an R pipeline retrieves and classifies
+              the data, and this page aggregates it in your browser. The design of this dashboard is inspired by the
+              <a href="https://esantos2ua.github.io/metaResearchDataChallenge/" target="_blank" rel="noopener">Canadian Metaresearch Dashboard</a>
+              (COSSEE / SORTEE Canada), which in turn draws on the <a href="https://open.coki.ac/" target="_blank" rel="noopener">COKI Open Access Dashboard</a>.
+              Data: OpenAlex (CC0).</p>
+            <p class="muted" id="provenance"></p>
+          </div>
+        </section>
+        </div>
+
+        <!-- RECORDS VIEW -->
+        <div id="view-records" hidden>
+          <section class="section">
+            <h2 class="section-title">Records</h2>
+            <div class="card wide">
+              <p class="card-desc">Every paper matching the filters. Click a title to open it.</p>
+              <div class="table-wrap"><table class="data-table records" id="records-table"></table></div>
+              <div class="pager">
+                <button class="btn-secondary" id="pg-prev">← Previous</button>
+                <span id="pg-info"></span>
+                <button class="btn-secondary" id="pg-next">Next →</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+<div class="tooltip-note" id="toast" role="status" hidden></div>
+<script src="app.js?v=1"></script>
+</body>
+</html>

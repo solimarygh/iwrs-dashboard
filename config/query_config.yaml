@@ -1,0 +1,198 @@
+# =============================================================================
+# IWRS Invertebrate Welfare Science Dashboard — corpus definition
+#
+# THIS FILE IS THE SINGLE SOURCE OF TRUTH. The R pipeline reads every
+# corpus-defining choice from here. Changing it changes the corpus: commit
+# changes with a clear message. The pipeline stores this file's MD5 hash in
+# records.json -> meta.provenance so each snapshot can be traced back to it.
+#
+# Scope follows the IWRS mission: insects plus terrestrial invertebrates
+# (arachnids, myriapods, gastropods) and aquatic invertebrates (shrimp/prawns,
+# horseshoe crabs, cephalopods).
+#
+# Search syntax: OpenAlex `search.title_and_abstract.exact` (unstemmed).
+#   * Wildcards (*) need >= 3 characters before them; no leading wildcards.
+#   * Quoted phrases are matched as adjacent words. NO wildcards inside quotes:
+#     OpenAlex rejects them in Boolean queries, so list singular and plural.
+#   * Each taxon group is queried separately (keeps URLs < 4 KB) and the
+#     results are unioned and deduplicated by OpenAlex work ID.
+#
+# Classification regexes run on lower-cased title + abstract in R (ICU regex).
+# They are multi-label: a paper can belong to several groups/themes/contexts.
+# =============================================================================
+
+version: "2026-10-07-draft-v0.1"
+
+years:
+  from: 2016
+  to: 2026            # 2026 is a partial year; flagged in the outputs
+
+work_types: [article, review]
+exclude_retracted: true
+
+# --- State terms (AND-ed with every taxon group) -----------------------------
+state_terms:
+  - sentien*
+  - '"affective state"'
+  - '"affective states"'
+  - '"affect-like"'
+  - emotion*
+  - conscious*
+  - welfare
+  - wellbeing
+  - '"well-being"'
+  - nocicept*
+  - pain
+  - suffering
+  - '"fear-like"'
+  - '"anxiety-like"'
+  - '"cognitive bias"'
+  - '"cognitive biases"'
+  - '"judgement bias"'
+  - '"judgement biases"'
+  - '"judgment bias"'
+  - '"judgment biases"'
+  - affective
+
+# --- Taxon groups ------------------------------------------------------------
+# Order matters only for display. `classify` decides group membership after
+# retrieval (a paper found by one group's query can also belong to another).
+taxon_groups:
+  - id: insects
+    label: Insects
+    search: [insect*, entomolog*, bee, bees, bumblebee*, honeybee*, drosophila,
+             '"fruit fly"', '"fruit flies"', cricket*, cockroach*, mealworm*,
+             '"black soldier fly"', '"black soldier flies"', hermetia,
+             locust*, silkworm*, ants, termite*, beetle*, butterfl*, moth, moths,
+             mosquito*, wasp*, grasshopper*, aphid*]
+    classify: >-
+      \binsect|entomolog|\bbees?\b|bumblebee|honeybee|drosophila|fruit fl(y|ies)|
+      \bcrickets?\b|cockroach|mealworm|black soldier fl|hermetia|locust|silkworm|
+      \bants?\b|termite|beetle|butterfl|\bmoths?\b|mosquito|\bwasps?\b|
+      grasshopper|aphid
+  - id: chelicerates
+    label: Arachnids & horseshoe crabs
+    note: >-
+      Horseshoe crabs (Xiphosura) are chelicerates, not crustaceans, so they sit
+      here. Mites and ticks are deliberately not searched: their literature is
+      dominated by parasitology/veterinary pain in hosts, not mite welfare.
+    search: [spider*, arachnid*, tarantula*, scorpion*, harvestm*, opilion*,
+             '"horseshoe crab"', '"horseshoe crabs"', limulus]
+    classify: >-
+      \bspiders?\b|arachnid|tarantula|scorpion|harvestm[ae]n|opilion|
+      horseshoe crab|limulus
+  - id: myriapods
+    label: Myriapods
+    search: [myriapod*, millipede*, centipede*]
+    classify: myriapod|millipede|centipede
+  - id: crustaceans
+    label: Crustaceans
+    search: [crustacea*, decapod*, shrimp*, prawn*, crab*, lobster*, crayfish*,
+             krill]
+    classify: >-
+      crustacea|decapod|shrimp|prawn|(?<!horseshoe )\bcrabs?\b|lobster|crayfish|
+      \bkrill\b
+  - id: cephalopods
+    label: Cephalopods
+    search: [cephalopod*, octopus*, octopod*, squid*, cuttlefish*, nautilus]
+    classify: cephalopod|octopus|octopod|\boctopi\b|\bsquids?\b|cuttlefish|nautilus
+  - id: gastropods
+    label: Gastropods
+    search: [gastropod*, snail*, slug*, aplysia, lymnaea]
+    classify: gastropod|\bsnails?\b|\bslugs?\b|aplysia|lymnaea
+  - id: general
+    label: Invertebrates (general/other)
+    note: Assigned when a paper matches this pattern OR no specific group above.
+    search: [invertebrate*, mollus*, bivalve*]
+    classify: invertebrate|mollus|bivalve
+
+# --- Themes (requested break-out) --------------------------------------------
+# Nociception is reported separately: nociception is not, on its own, evidence
+# of sentience or of a welfare focus. Papers whose ONLY theme is
+# pain/nociception are flagged `noci_only` and hidden by default in the
+# dashboard (toggle available) — this removes most Drosophila nociception
+# neurogenetics while keeping papers that discuss pain *experience*.
+themes:
+  - id: sentience
+    label: Sentience
+    classify: \bsentien
+  - id: emotion
+    label: Emotion
+    classify: >-
+      emotion|fear-like|anxiety-like|depression-like|
+      \boptimis(m|tic)\b|\bpessimis(m|tic)\b
+  - id: affect
+    label: Affect
+    note: >-
+      "affect" alone is not used: as a verb it matches almost every paper.
+      Judgement/cognitive-bias tests are counted here because they measure
+      affective valence.
+    classify: >-
+      \baffective\b|affect-like|\bvalence\b|cognitive bias|judge?ment bias
+  - id: consciousness
+    label: Consciousness
+    classify: conscious
+  - id: pain
+    label: Pain / nociception
+    classify: nocicept|\bpain|\bpainful|analges|anaesthe|anesthe
+  - id: welfare
+    label: Welfare
+    classify: \bwelfare|well-being|wellbeing|\bhumane\b|\bstunning\b|euthanas
+
+# --- Management contexts (from the IWRS mission statement) -------------------
+# Keyword-based and approximate: use for orientation, not as final counts.
+contexts:
+  - id: farming
+    label: Farming (food, feed, aquaculture)
+    classify: >-
+      \bfarm(ed|ing|s)?\b|aquaculture|mass[- ]rear|\brearing\b|black soldier fl|
+      mealworm|edible insect|insects? as food|food and feed|insect protein|
+      livestock|slaughter|\bstunning\b
+  - id: research
+    label: Research & laboratory
+    classify: >-
+      laborator|\blab\b|research animals?|model organism|\b3rs\b|
+      ethic(s|al) (review|approval|committee|guideline)
+  - id: pest
+    label: Pest management & invasives
+    classify: \bpests?\b|insecticid|pesticid|invasive
+  - id: wild
+    label: Wild populations & conservation
+    classify: \bwild\b|conservation|fisher(y|ies)|by-?catch|field population
+  - id: waste
+    label: Waste management
+    classify: \bwaste\b|bioconversion|\bfrass\b|organic residue
+  - id: captivity
+    label: Zoos, pets & education
+    classify: \bzoos?\b|aquari(um|a)|pet trade|\bpets?\b|exhibit|classroom|hobbyist
+  - id: medical
+    label: Medical uses
+    classify: \bvenom|medical use|maggot therapy|biomedical
+
+# --- Journals ----------------------------------------------------------------
+# Matched case-insensitively on the OpenAlex source display_name.
+# Check data/processed/journal_ranking.csv after each run for missing names.
+journal_groups:
+  - id: welfare
+    label: Animal welfare journals
+    names: [Animal Welfare, Applied Animal Behaviour Science,
+            Journal of Applied Animal Welfare Science, Animal Sentience]
+  - id: entomology
+    label: Entomology journals
+    names: [Journal of Insect Physiology, Insects,
+            Journal of Insects as Food and Feed, Ecological Entomology,
+            Physiological Entomology, Annual Review of Entomology,
+            Current Opinion in Insect Science, Journal of Insect Behavior]
+  - id: multidisciplinary
+    label: High-impact multidisciplinary
+    names: [Nature, Science, Proceedings of the National Academy of Sciences]
+
+# --- Theses (partial proxy) --------------------------------------------------
+# OpenAlex indexes some dissertations (type:dissertation). Coverage is far from
+# complete, so these counts are a floor; data/manual/theses.csv adds records
+# found in ProQuest, NDLTD, BDTD, DART-Europe, etc.
+fetch_dissertations: true
+
+focal_journals: [Animal Welfare, Applied Animal Behaviour Science,
+                 Journal of Insect Physiology, Nature, Science,
+                 Proceedings of the National Academy of Sciences]
