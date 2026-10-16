@@ -9,3 +9,6 @@ data/validation/coding_sheet_coder*.csv
 .Rproj.user
 .httr-oauth
 .quarto
+
+# Full corpus with abstracts is large and re-created by R/02_build_records.R
+data/processed/corpus_full.csv
