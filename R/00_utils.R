@@ -19,7 +19,7 @@ chr_set <- function(x) {
 CONFIG_PATH <- "config/query_config.yaml"
 
 load_config <- function(path = CONFIG_PATH) {
-  cfg <- yaml::read_yaml(path)
+  cfg <- yaml::read_yaml(path, fileEncoding = "UTF-8")
   # Folded YAML scalars join lines with a space; remove the spaces that this
   # introduces around "|" so the regexes stay exact.
   clean_rx <- function(x) str_squish(gsub("\\s*\\|\\s*", "|", x))
@@ -130,6 +130,61 @@ classify_multi <- function(text, defs) {
   m <- do.call(cbind, hits)
   if (is.null(dim(m))) m <- matrix(m, ncol = length(defs))
   map(seq_len(nrow(m)), ~ ids[which(m[.x, ])])
+}
+
+# ---- Relevance filter -------------------------------------------------------
+# Decides whether a retrieved paper is plausibly ABOUT invertebrate welfare/
+# sentience/affect. Returns one reason per paper:
+#   "title" / "abstract"  -> keep
+#   "excluded" / "human-emotion" / "no-proximity" -> drop
+make_relevance <- function(rel) {
+  esc <- function(x) gsub("([.*+?^${}()|\\[\\]\\\\])", "\\\\\\1", x)
+  phrase_rx <- function(p) paste0("\\b(", paste(map_chr(p, \(s) gsub(" ", "\\\\s+", esc(s))), collapse = "|"), ")\\b")
+  list(
+    window    = rel$window,
+    excl      = regex(paste(rel$exclude, collapse = "|"), ignore_case = TRUE),
+    human     = regex(rel$human_context, ignore_case = TRUE),
+    tax_phr   = regex(phrase_rx(rel$taxon_phrases), ignore_case = TRUE),
+    st_phr    = regex(phrase_rx(rel$state_phrases), ignore_case = TRUE),
+    tax_pre   = paste0("^(", paste(rel$taxon_prefixes, collapse = "|"), ")"),
+    tax_not   = paste0("^(", paste(rel$taxon_not_prefixes, collapse = "|"), ")"),
+    tax_word  = paste0("^(", paste(rel$taxon_words, collapse = "|"), ")$"),
+    tax_inf   = paste(rel$taxon_infixes, collapse = "|"),
+    state     = paste0("^(", paste(rel$state_tokens, collapse = "|"), ")$")
+  )
+}
+
+# Tokenise one sentence; multi-word taxa become "taxon_..." and bias phrases
+# "state_..." so they count as single tokens.
+rel_tokens <- function(s, R) {
+  s <- str_replace_all(s, R$tax_phr, \(m) paste0("taxon_", gsub("\\s+", "_", m)))
+  s <- str_replace_all(s, R$st_phr,  \(m) paste0("state_", gsub("\\s+", "_", m)))
+  tok <- str_to_lower(str_split(s, "\\s+")[[1]])
+  str_replace_all(tok, "[^[:alnum:]_-]", "")
+}
+
+rel_positions <- function(tok, R) {
+  is_tax <- (str_detect(tok, R$tax_pre) & !str_detect(tok, R$tax_not)) |
+            str_detect(tok, R$tax_word) | str_detect(tok, R$tax_inf) |
+            startsWith(tok, "taxon_")
+  is_st  <- str_detect(tok, R$state) | startsWith(tok, "state_")
+  list(tax = which(is_tax), st = which(is_st))
+}
+
+relevance_reason <- function(title, abstract, themes, R) {
+  title <- coalesce(title, ""); abstract <- coalesce(abstract, "")
+  text <- paste(title, abstract, sep = ". ")
+  if (str_detect(text, R$excl)) return("excluded")
+  if (length(themes) && all(themes %in% c("emotion", "affect", "pain")) &&
+      str_detect(text, R$human)) return("human-emotion")
+  p <- rel_positions(rel_tokens(title, R), R)
+  if (length(p$tax) && length(p$st)) return("title")
+  for (s in str_split(abstract, "(?<=[.!?])\\s+")[[1]]) {
+    p <- rel_positions(rel_tokens(s, R), R)
+    if (length(p$tax) && length(p$st) &&
+        min(abs(outer(p$tax, p$st, "-"))) <= R$window) return("abstract")
+  }
+  "no-proximity"
 }
 
 journal_group <- function(journal, cfg) {

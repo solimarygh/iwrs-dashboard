@@ -27,7 +27,9 @@ years:
   from: 2016
   to: 2026            # 2026 is a partial year; flagged in the outputs
 
-work_types: [article, review]
+# book-chapter: review series such as Advances in Insect Physiology are indexed
+# as chapters. Kept as a separate type so the dashboard can include/exclude them.
+work_types: [article, review, book-chapter]
 exclude_retracted: true
 
 # --- State terms (AND-ed with every taxon group) -----------------------------
@@ -196,3 +198,53 @@ fetch_dissertations: true
 focal_journals: [Animal Welfare, Applied Animal Behaviour Science,
                  Journal of Insect Physiology, Nature, Science,
                  Proceedings of the National Academy of Sciences]
+
+# --- Relevance filter (applied after retrieval, in R/02_build_records.R) ------
+# Retrieval is deliberately broad (high recall). This filter keeps a paper only if
+# a taxon and a state term are close together, i.e. the paper is plausibly ABOUT
+# the welfare/sentience/affect of an invertebrate. Rules, in order:
+#   1. `exclude`: drop known homonyms and human/vertebrate contexts.
+#   2. `human_context`: drop papers whose only themes are emotion/affect/pain
+#      and that talk about people (consumers, patients, students...).
+#   3. keep if the TITLE has a taxon term and a state term;
+#   4. else keep if one ABSTRACT sentence has them within `window` words.
+# Tune with the hand-coded precision sample and the gold set (R/03_validation.R).
+relevance:
+  window: 8
+  # Token must START with one of these (so "octopuses", "crayfishes" match)
+  taxon_prefixes: [insect, invertebrat, arthropod, bumblebee, honeybee, drosophila,
+    cockroach, mealworm, locust, silkworm, termite, beetle, butterfl, wasp,
+    grasshopper, aphid, spider, arachnid, tarantula, scorpion, limulus, millipede,
+    centipede, myriapod, crustacea, decapod, shrimp, prawn, crab, lobster, crayfish,
+    krill, cephalopod, octop, squid, cuttlefish, nautilus, gastropod, snail, aplysia,
+    lymnaea, mollus, mosquito, hermetia, tenebrio, penaeus, litopenaeus,
+    macrobrachium, procambarus, carcinus, sepia, loligo]
+  # ...but not with these
+  taxon_not_prefixes: [insecticid, insectivor, insectar, apiar]
+  # Whole words only (too ambiguous as prefixes)
+  taxon_words: [bee, bees, cricket, crickets, moth, moths, ants, fly, flies, slug, slugs, larvae]
+  # Genus-in-the-middle forms, e.g. Amphioctopus
+  taxon_infixes: [octopus]
+  taxon_phrases: ["black soldier fly", "black soldier flies", "fruit fly", "fruit flies",
+    "horseshoe crab", "horseshoe crabs", "honey bee", "honey bees", "bumble bee",
+    "bumble bees", "apis mellifera", "bombus terrestris"]
+  # State tokens (whole token, lower case, regex)
+  state_tokens: ['sentien\w*', 'emotion\w*', 'affective', 'affect-like', 'fear-like',
+    'anxiety-like', 'depression-like', 'pessimis\w*', 'conscious\w*', 'welfare',
+    'well-being', 'wellbeing', 'nocicept\w*', 'pain\w*', 'suffer\w*', 'stunning',
+    'humane', 'euthanas\w*', 'slaughter\w*']
+  state_phrases: ["cognitive bias", "cognitive biases", "judgement bias", "judgment bias",
+    "judgement biases", "judgment biases"]
+  exclude:
+    - 'optimi[sz]ation algorithm|bee colony|ant colony|moth[- ]flame|grasshopper optimi|crayfish optimi'
+    - 'cuckoo search|swarm intelligence|metaheuristic|firefly algorithm'
+    - 'spelling bee|queen bee phenomenon|crab nebula|squid game|spider-?man|spider monkeys?|spider veins?'
+    - '\bcricketers?\b|\bathletes?\b|\bsports?\b|\bbatting\b|\bbowlers?\b'
+    - '\bpoems?\b|\bpoetry\b|\bnovelist|\bfiction\b|literary'
+    - 'household welfare|social welfare|welfare state|child welfare'
+    - "(fisher(men|folk|s)|farmers|beekeepers)'? (welfare|well-being|income)"
+    - 'food allerg|anaphyla|envenom|\bstings?\b|\bbites?\b'
+    - 'dengue|malaria|zika|chikungunya|leishmania'
+    - 'phobi|fear of spiders|disgust'
+    - '(broiler|poultry|chickens?|hens?|pigs?|piglets?|swine|salmon|trout|tilapia|fish|cattle|cows|calves|dogs?|cats?|horses?) (welfare|well-being|wellbeing|behaviou?r)'
+  human_context: '\bconsumers?\b|\bparticipants\b|\brespondents\b|\bstudents\b|\belderly\b|\bnurses\b|\bpatients?\b|\bchildren\b|\badolescents\b|\bwomen\b'

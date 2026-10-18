@@ -213,7 +213,7 @@ if (typeof window !== 'undefined') (function () {
     buildCheckboxes('f-themes', META.labels.themes, 'themes', 'th', cm.themes);
     buildCheckboxes('f-contexts', META.labels.contexts, 'contexts', 'cx');
     buildCheckboxes('f-jgroups', META.labels.jgroups, 'jgroups', 'jg', cm.jgroups);
-    buildCheckboxes('f-types', { article: 'Article', review: 'Review' }, 'types', 'ty');
+    buildCheckboxes('f-types', { article: 'Article', review: 'Review', 'book-chapter': 'Book chapter' }, 'types', 'ty');
   }
 
   function resetFilters(run = true) {

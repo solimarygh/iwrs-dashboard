@@ -49,11 +49,24 @@ sheet_path <- file.path(vdir, "coding_sheet.csv")
 if (!file.exists(sheet_path)) {
   set.seed(2026)
   corpus |>
-    filter(!noci_only) |>
-    slice_sample(n = min(200, sum(!corpus$noci_only))) |>
+    filter(relevant, !noci_only) |>
+    slice_sample(n = min(200, sum(corpus$relevant & !corpus$noci_only))) |>
     transmute(id, title, year, journal, abstract,
               relevant = "", study_type = "", notes = "") |>
     write_csv(sheet_path)
+  # Papers the relevance filter DROPPED: coding a sample of these estimates how
+  # many relevant papers the filter loses (false negatives).
+  # Stratified: 50 dropped by the exclusion rules, 50 dropped for other reasons
+  # (no proximity / human emotion), so both kinds of loss are audited.
+  corpus |>
+    filter(!relevant) |>
+    mutate(stratum = if_else(relevance == "excluded", "excluded", "other")) |>
+    group_by(stratum) |>
+    slice_sample(n = 50) |>
+    ungroup() |>
+    transmute(id, title, year, journal, abstract, filter_reason = relevance,
+              relevant = "", notes = "") |>
+    write_csv(file.path(vdir, "dropped_sample.csv"))
   message("Coding sheet written: ", sheet_path,
           "\nCode it independently (two coders), save as coding_sheet_coder1.csv / coder2.csv, then re-run.")
 }

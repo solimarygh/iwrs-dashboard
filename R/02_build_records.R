@@ -32,6 +32,14 @@ w$taxa     <- map2(w$taxa, gen_hit, \(t, g) if (g || !length(t)) c(t, "general")
 w$themes   <- classify_multi(text, cfg$themes)
 w$contexts <- classify_multi(text, cfg$contexts)
 
+# ---- Relevance filter (rules in query_config.yaml -> relevance) ------------
+R <- make_relevance(cfg$relevance)
+message("Applying relevance filter to ", nrow(w), " works…")
+w$relevance <- pmap_chr(list(w$title, w$abstract, w$themes), \(t, a, th) relevance_reason(t, a, th, R))
+w$relevant  <- w$relevance %in% c("title", "abstract")
+relevance_counts <- as.list(table(w$relevance))
+print(table(w$relevance))
+
 w <- w |>
   mutate(
     noci_only   = map_lgl(themes, ~ identical(.x, "pain")),
@@ -48,6 +56,11 @@ long_count <- function(df, col, name) {
     count(year, across(all_of(name))) |>
     pivot_wider(names_from = all_of(name), values_from = n, values_fill = 0)
 }
+
+# Keep the full retrieval for auditing; everything below uses relevant papers only
+w_all <- w
+w <- filter(w_all, relevant)
+message(sprintf("Relevant: %d of %d retrieved works", nrow(w), nrow(w_all)))
 
 core <- filter(w, !noci_only)   # default view in the dashboard
 
@@ -78,7 +91,7 @@ core |> arrange(desc(cited_by)) |> slice_head(n = 50) |>
   write_csv("data/processed/top50_cited.csv")
 
 # Full corpus with abstracts (for coding / sharing; not shipped to the browser)
-w |> mutate(across(c(countries, institutions, first_country, found_by,
+w_all |> mutate(across(c(countries, institutions, first_country, found_by,
                      taxa, themes, contexts), ~ map_chr(.x, paste, collapse = ";"))) |>
   write_csv("data/processed/corpus_full.csv")
 
@@ -116,7 +129,10 @@ diss <- snap$dissertations %||% tibble()
 if (nrow(diss)) {
   dtext <- str_to_lower(paste(diss$title, coalesce(diss$abstract, "")))
   diss$themes <- classify_multi(dtext, cfg$themes)
-  diss <- diss |> filter(!map_lgl(themes, ~ identical(.x, "pain")))
+  diss$relevance <- pmap_chr(list(diss$title, diss$abstract, diss$themes),
+                             \(t, a, th) relevance_reason(t, a, th, R))
+  diss <- diss |> filter(relevance %in% c("title", "abstract"),
+                         !map_lgl(themes, ~ identical(.x, "pain")))
   norm_title <- function(x) str_to_lower(gsub("[^[:alnum:]]", "", x))
   if (nrow(theses)) diss <- filter(diss, !norm_title(title) %in% norm_title(theses$title))
   diss |> transmute(id, year, title, institutions = map_chr(institutions, paste, collapse = ";")) |>
@@ -172,6 +188,8 @@ meta <- list(
   title = "Invertebrate Welfare Science Dashboard",
   retrieved_at = snap$retrieved_at,
   n_records = nrow(w),
+  n_retrieved = nrow(w_all),
+  relevance_counts = relevance_counts,
   years = cfg$years,
   provenance = list(config_version = snap$config_version,
                     config_md5 = snap$config_md5,
