@@ -143,6 +143,8 @@ make_relevance <- function(rel) {
   list(
     window    = rel$window,
     excl      = regex(paste(rel$exclude, collapse = "|"), ignore_case = TRUE),
+    excl_title = if (length(rel$exclude_title))
+      regex(paste(rel$exclude_title, collapse = "|"), ignore_case = TRUE),
     human     = regex(rel$human_context, ignore_case = TRUE),
     tax_phr   = regex(phrase_rx(rel$taxon_phrases), ignore_case = TRUE),
     st_phr    = regex(phrase_rx(rel$state_phrases), ignore_case = TRUE),
@@ -175,6 +177,7 @@ relevance_reason <- function(title, abstract, themes, R) {
   title <- coalesce(title, ""); abstract <- coalesce(abstract, "")
   text <- paste(title, abstract, sep = ". ")
   if (str_detect(text, R$excl)) return("excluded")
+  if (!is.null(R$excl_title) && str_detect(title, R$excl_title)) return("excluded")
   if (length(themes) && all(themes %in% c("emotion", "affect", "pain")) &&
       str_detect(text, R$human)) return("human-emotion")
   p <- rel_positions(rel_tokens(title, R), R)

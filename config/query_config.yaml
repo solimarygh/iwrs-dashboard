@@ -203,7 +203,8 @@ focal_journals: [Animal Welfare, Applied Animal Behaviour Science,
 # Retrieval is deliberately broad (high recall). This filter keeps a paper only if
 # a taxon and a state term are close together, i.e. the paper is plausibly ABOUT
 # the welfare/sentience/affect of an invertebrate. Rules, in order:
-#   1. `exclude`: drop known homonyms and human/vertebrate contexts.
+#   1. `exclude`: drop known homonyms and human/vertebrate contexts;
+#      `exclude_title`: same, but only checked against the title.
 #   2. `human_context`: drop papers whose only themes are emotion/affect/pain
 #      and that talk about people (consumers, patients, students...).
 #   3. keep if the TITLE has a taxon term and a state term;
@@ -245,6 +246,14 @@ relevance:
     - "(fisher(men|folk|s)|farmers|beekeepers)'? (welfare|well-being|income)"
     - 'food allerg|anaphyla|envenom|\bstings?\b|\bbites?\b'
     - 'dengue|malaria|zika|chikungunya|leishmania'
-    - 'phobi|fear of spiders|disgust'
-    - '(broiler|poultry|chickens?|hens?|pigs?|piglets?|swine|salmon|trout|tilapia|fish|cattle|cows|calves|dogs?|cats?|horses?) (welfare|well-being|wellbeing|behaviou?r)'
+    # Human phobias only: a bare 'phobi' also matched photophobia/neophobia in
+    # animal anxiety tests (e.g. light/dark preference in crayfish)
+    - '\bphobias?\b|arachnophob|entomophob|food neophob|fear of spiders|disgust'
+    # \b so that crayfish/cuttlefish/shellfish behaviour is not caught by 'fish'
+    - '\b(broiler|poultry|chickens?|hens?|pigs?|piglets?|swine|salmon|trout|tilapia|fish|cattle|cows|calves|dogs?|cats?|horses?) (welfare|well-being|wellbeing|behaviou?r)'
+  # Checked against the TITLE only: welfare papers often mention consumer
+  # acceptance in passing in the abstract (e.g. five-domains papers on farmed insects)
+  exclude_title:
+    # Human acceptance of insects as food or feed: about people, not insect welfare
+    - 'willingness to (pay|eat)|intentions? to (eat|insect)|consumer (acceptance|preferences?|attitudes?)'
   human_context: '\bconsumers?\b|\bparticipants\b|\brespondents\b|\bstudents\b|\belderly\b|\bnurses\b|\bpatients?\b|\bchildren\b|\badolescents\b|\bwomen\b'
