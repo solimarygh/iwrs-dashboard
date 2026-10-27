@@ -35,8 +35,17 @@ w$contexts <- classify_multi(text, cfg$contexts)
 # ---- Relevance filter (rules in query_config.yaml -> relevance) ------------
 R <- make_relevance(cfg$relevance)
 message("Applying relevance filter to ", nrow(w), " works…")
-w$relevance <- pmap_chr(list(w$title, w$abstract, w$themes), \(t, a, th) relevance_reason(t, a, th, R))
-w$relevant  <- w$relevance %in% c("title", "abstract")
+w$relevance <- pmap_chr(list(w$title, w$abstract, w$themes, w$type),
+                        \(t, a, th, ty) relevance_reason(t, a, th, R, ty))
+include_ids <- read_include_ids(cfg$relevance)
+if (length(include_ids)) {
+  missing_ids <- setdiff(include_ids, c(w$id, snap$dissertations[["id"]]))
+  if (length(missing_ids))
+    warning(length(missing_ids), " id(s) in ", cfg$relevance$include_file,
+            " are not in this snapshot: ", paste(missing_ids, collapse = ", "))
+  w$relevance[w$id %in% include_ids] <- "manual"
+}
+w$relevant  <- w$relevance %in% c("title", "abstract", "manual")
 relevance_counts <- as.list(table(w$relevance))
 print(table(w$relevance))
 
@@ -130,8 +139,9 @@ if (nrow(diss)) {
   dtext <- str_to_lower(paste(diss$title, coalesce(diss$abstract, "")))
   diss$themes <- classify_multi(dtext, cfg$themes)
   diss$relevance <- pmap_chr(list(diss$title, diss$abstract, diss$themes),
-                             \(t, a, th) relevance_reason(t, a, th, R))
-  diss <- diss |> filter(relevance %in% c("title", "abstract"),
+                             \(t, a, th) relevance_reason(t, a, th, R, "dissertation"))
+  diss$relevance[diss$id %in% include_ids] <- "manual"
+  diss <- diss |> filter(relevance %in% c("title", "abstract", "manual"),
                          !map_lgl(themes, ~ identical(.x, "pain")))
   norm_title <- function(x) str_to_lower(gsub("[^[:alnum:]]", "", x))
   if (nrow(theses)) diss <- filter(diss, !norm_title(title) %in% norm_title(theses$title))

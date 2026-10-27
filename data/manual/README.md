@@ -15,6 +15,7 @@ Keep `url` and `source` filled in for every row, so each number can be traced.
 | `theses.csv` | PhD dissertation or Master's thesis | Theses (added to the OpenAlex dissertations, deduplicated by title) |
 | `grants.csv` | grant | Number and USD value of grants by non-EA funders |
 | `media.csv` | media item, or a yearly count from a media database | Media mentions |
+| `include_ids.csv` | OpenAlex work checked by hand | Not an indicator: works the relevance filter drops but that belong in the corpus (see below) |
 
 ## Allowed values
 
@@ -40,3 +41,14 @@ Keep `url` and `source` filled in for every row, so each number can be traced.
 - **Grants:** NIH RePORTER, NSF Award Search, USDA NIFA (CRIS/REEIS), UKRI Gateway to
   Research, CORDIS, FAPESP Virtual Library.
 - **Media:** Media Cloud (US collections for the US-focused series), Factiva/Nexis Uni.
+
+## `include_ids.csv`: works kept by hand
+
+The relevance filter in `config/query_config.yaml` is automatic and misses some works,
+for example book chapters of central books whose titles are generic ("The Clearest
+Candidates", "Feeling and suffering"); chapters must pass on their title because
+OpenAlex often gives them the abstract of the whole book. List such works here, one per
+row: `id` is the OpenAlex work id (`W…`, with or without `https://openalex.org/`),
+`title` is for humans, `note` says why it belongs. `R/02_build_records.R` keeps them with
+relevance reason `manual` and warns about ids that are not in the current snapshot.
+Only add works you have checked yourself.

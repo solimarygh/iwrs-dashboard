@@ -79,7 +79,11 @@ Retrieval is deliberately broad (~18k works); most of it is noise. `relevance_re
    food allergy, phobia; welfare of vertebrates fed with insects, e.g. "broiler welfare");
 2. it is not a human-emotion paper (only emotion/affect/pain themes + people words);
 3. the **title** has a taxon and a state term, or one **abstract sentence** has them within
-   `window` (8) words.
+   `window` (8) words. Book chapters (`title_only_types`) must pass on the **title**:
+   OpenAlex often gives each chapter the whole book's abstract (2026-10-19 snapshot:
+   ~20-25% of chapters kept by the abstract rule were relevant).
+4. Works listed in `data/manual/include_ids.csv` (checked by hand) are kept regardless,
+   with reason `manual`.
 
 First real run (2026-10-07): 18,222 retrieved → 1,518 relevant (1,218 without
 nociception-only); 86 papers in 2016 → 182 in 2025.

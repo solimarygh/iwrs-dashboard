@@ -136,12 +136,15 @@ classify_multi <- function(text, defs) {
 # Decides whether a retrieved paper is plausibly ABOUT invertebrate welfare/
 # sentience/affect. Returns one reason per paper:
 #   "title" / "abstract"  -> keep
-#   "excluded" / "human-emotion" / "no-proximity" -> drop
+#   "excluded" / "human-emotion" / "no-proximity" /
+#   "no-title-match" (title-only types) -> drop
+#   ("manual" is set in 02 for works in the include file)
 make_relevance <- function(rel) {
   esc <- function(x) gsub("([.*+?^${}()|\\[\\]\\\\])", "\\\\\\1", x)
   phrase_rx <- function(p) paste0("\\b(", paste(map_chr(p, \(s) gsub(" ", "\\\\s+", esc(s))), collapse = "|"), ")\\b")
   list(
     window    = rel$window,
+    title_only_types = rel$title_only_types %||% character(0),
     excl      = regex(paste(rel$exclude, collapse = "|"), ignore_case = TRUE),
     excl_title = if (length(rel$exclude_title))
       regex(paste(rel$exclude_title, collapse = "|"), ignore_case = TRUE),
@@ -173,7 +176,7 @@ rel_positions <- function(tok, R) {
   list(tax = which(is_tax), st = which(is_st))
 }
 
-relevance_reason <- function(title, abstract, themes, R) {
+relevance_reason <- function(title, abstract, themes, R, type = NA_character_) {
   title <- coalesce(title, ""); abstract <- coalesce(abstract, "")
   text <- paste(title, abstract, sep = ". ")
   if (str_detect(text, R$excl)) return("excluded")
@@ -182,12 +185,22 @@ relevance_reason <- function(title, abstract, themes, R) {
       str_detect(text, R$human)) return("human-emotion")
   p <- rel_positions(rel_tokens(title, R), R)
   if (length(p$tax) && length(p$st)) return("title")
+  if (isTRUE(type %in% R$title_only_types)) return("no-title-match")
   for (s in str_split(abstract, "(?<=[.!?])\\s+")[[1]]) {
     p <- rel_positions(rel_tokens(s, R), R)
     if (length(p$tax) && length(p$st) &&
         min(abs(outer(p$tax, p$st, "-"))) <= R$window) return("abstract")
   }
   "no-proximity"
+}
+
+# Hand-checked works to keep regardless of the rules (relevance$include_file)
+read_include_ids <- function(rel) {
+  p <- rel$include_file
+  if (is.null(p) || !file.exists(p)) return(character(0))
+  ids <- read_csv(p, show_col_types = FALSE, col_types = cols(.default = "c"))$id
+  ids <- str_trim(sub("^https?://openalex.org/", "", ids))
+  unique(ids[!is.na(ids) & ids != ""])
 }
 
 journal_group <- function(journal, cfg) {

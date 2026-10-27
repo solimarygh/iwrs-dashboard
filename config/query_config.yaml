@@ -208,10 +208,20 @@ focal_journals: [Animal Welfare, Applied Animal Behaviour Science,
 #   2. `human_context`: drop papers whose only themes are emotion/affect/pain
 #      and that talk about people (consumers, patients, students...).
 #   3. keep if the TITLE has a taxon term and a state term;
-#   4. else keep if one ABSTRACT sentence has them within `window` words.
+#   4. else keep if one ABSTRACT sentence has them within `window` words
+#      (not for `title_only_types`, which must pass on the title);
+#   5. works listed in `include_file` are kept whatever rules 1-4 say.
 # Tune with the hand-coded precision sample and the gold set (R/03_validation.R).
 relevance:
   window: 8
+  # Book chapters often carry the abstract of the WHOLE book in OpenAlex, so a
+  # chapter called "Conclusion" or "Intellectual property rights" passed on the
+  # book's abstract. In the 2026-10-19 snapshot, chapters kept by the abstract
+  # rule were ~20-25% relevant vs most of those kept by the title.
+  title_only_types: [book-chapter]
+  # Hand-checked works to keep even if the rules drop them (e.g. chapters of
+  # central books with generic titles). Columns: id (OpenAlex W-id), title, note.
+  include_file: data/manual/include_ids.csv
   # Token must START with one of these (so "octopuses", "crayfishes" match)
   taxon_prefixes: [insect, invertebrat, arthropod, bumblebee, honeybee, drosophila,
     cockroach, mealworm, locust, silkworm, termite, beetle, butterfl, wasp,
